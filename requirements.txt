@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
+redis
+python-dotenv
+langdetect
+edge-tts
+google-generativeai

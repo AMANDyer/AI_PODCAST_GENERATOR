@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: podcast-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+
+  api:
+    build: .
+    container_name: podcast-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - ./podcasts:/app/podcasts
+    depends_on:
+      - redis
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=sqlite:////app/podcast.db
+      # Add other env vars if needed (GEMINI_API_KEY, etc.)
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  redis-data:

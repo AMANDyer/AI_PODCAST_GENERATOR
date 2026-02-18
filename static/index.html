@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Podcast Generator</title>
+    <style>
+        :root {
+            --primary: #4CAF50;
+            --primary-dark: #388E3C;
+            --bg: #f5f9ff;
+            --card-bg: white;
+            --text: #333;
+            --border: #ddd;
+        }
+        body.dark {
+            --bg: #121212;
+            --card-bg: #1e1e1e;
+            --text: #e0e0e0;
+            --border: #333;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: var(--bg);
+            color: var(--text);
+            transition: all 0.3s;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        h1 {
+            text-align: center;
+            color: var(--primary);
+        }
+        .api-section {
+            margin-bottom: 25px;
+        }
+        .api-section label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            flex: 1;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        #generateBtn {
+            background: var(--primary);
+            color: white;
+        }
+        #generateBtn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        #saveKeyBtn {
+            background: #2196F3;
+            color: white;
+        }
+        #clearKeyBtn {
+            background: #f44336;
+            color: white;
+        }
+        #status {
+            background: rgba(0,0,0,0.03);
+            padding: 15px;
+            border-radius: 8px;
+            height: 220px;
+            overflow-y: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+            margin-bottom: 20px;
+        }
+        .progress-bar {
+            height: 8px;
+            background: #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 15px 0;
+            display: none;
+        }
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--primary);
+            transition: width 0.3s;
+        }
+        #player {
+            width: 100%;
+            margin-top: 15px;
+        }
+        #urlLink {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 18px;
+        }
+        #urlLink a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: bold;
+        }
+        #urlLink a:hover {
+            text-decoration: underline;
+        }
+        .dark-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            cursor: pointer;
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+    <span class="dark-toggle" onclick="toggleDarkMode()">🌙</span>
+
+    <div class="container">
+        <h1>AI Podcast Generator</h1>
+
+        <div class="api-section">
+            <label>API Key (ek baar save kar lo):</label>
+            <input id="apiKey" placeholder="Your API key from /auth/register" type="text">
+            <div class="buttons">
+                <button id="saveKeyBtn" onclick="saveApiKey()">Save Key</button>
+                <button id="clearKeyBtn" onclick="clearApiKey()">Clear Key</button>
+            </div>
+        </div>
+
+        <label>Topic:</label>
+        <input id="topic" placeholder="जयपुर की सबसे अच्छी चाय कहाँ मिलती है">
+
+        <label>Emotion:</label>
+        <select id="emotion">
+            <option value="neutral">Neutral</option>
+            <option value="happy">Happy / जोशीला</option>
+            <option value="sad">Sad / उदास</option>
+        </select>
+
+        <label>Voice Gender:</label>
+        <select id="voiceGender">
+            <option value="male">Male (Madhur)</option>
+            <option value="female">Female (Swara)</option>
+        </select>
+
+        <button id="generateBtn" onclick="generatePodcast()" disabled>Generate Podcast</button>
+
+        <h3>Progress:</h3>
+        <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+        <pre id="status">API key save karo toh button enable hoga...</pre>
+
+        <audio id="player" controls></audio>
+
+        <div id="urlLink"></div>
+    </div>
+
+    <script>
+        const status = document.getElementById('status');
+        const player = document.getElementById('player');
+        const urlLink = document.getElementById('urlLink');
+        const generateBtn = document.getElementById('generateBtn');
+        const apiKeyInput = document.getElementById('apiKey');
+
+        // Load saved API key
+        const savedKey = localStorage.getItem('podcastApiKey');
+        if (savedKey) {
+            apiKeyInput.value = savedKey;
+            generateBtn.disabled = false;
+            log("Saved API key loaded! Ready to generate.");
+        }
+
+        function log(msg, type = 'info') {
+            const line = document.createElement('div');
+            line.textContent = msg;
+            if (type === 'error') line.style.color = 'red';
+            if (type === 'success') line.style.color = 'green';
+            status.appendChild(line);
+            status.scrollTop = status.scrollHeight;
+        }
+
+        function saveApiKey() {
+            const key = apiKeyInput.value.trim();
+            if (key) {
+                localStorage.setItem('podcastApiKey', key);
+                generateBtn.disabled = false;
+                log("API key saved successfully!", 'success');
+            } else {
+                log("API key daalo pehle!", 'error');
+            }
+        }
+
+        function clearApiKey() {
+            localStorage.removeItem('podcastApiKey');
+            apiKeyInput.value = '';
+            generateBtn.disabled = true;
+            log("API key cleared.", 'info');
+        }
+
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark');
+        }
+
+        function generatePodcast() {
+            const apiKey = apiKeyInput.value.trim();
+            const topic = document.getElementById('topic').value.trim();
+            const emotion = document.getElementById('emotion').value;
+            const voiceGender = document.getElementById('voiceGender').value;
+
+            if (!apiKey || !topic) {
+                log("Error: API Key ya Topic missing!", 'error');
+                return;
+            }
+
+            log("WebSocket connect ho raha hai...");
+
+            const wsUrl = `ws://${location.host}/ws`;
+            const ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                log("Connected! Request bhej raha hoon...");
+                ws.send(JSON.stringify({
+                    api_key: apiKey,
+                    topic: topic,
+                    emotion: emotion,
+                    voice_gender: voiceGender
+                }));
+            };
+
+            ws.onmessage = (event) => {
+                const msg = event.data;
+                log(msg);
+
+                if (msg.startsWith("audio:")) {
+                    const src = msg.split("audio:")[1];
+                    player.src = src;
+                    player.play();
+                    log("Audio play ho raha hai ↑", 'success');
+                }
+
+                if (msg.startsWith("saved_url:")) {
+                    const url = msg.split("saved_url:")[1];
+                    urlLink.innerHTML = `
+                        <strong>Saved Podcast:</strong><br>
+                        <a href="${url}" target="_blank" download>Download / Play MP3</a>
+                        <br><small>(Right-click > Save As for download)</small>
+                    `;
+                    log("Podcast saved! Link ready.", 'success');
+                }
+            };
+
+            ws.onclose = () => log("Connection band ho gayi.");
+            ws.onerror = (err) => log("Connection error: " + (err.message || "Unknown"), 'error');
+        }
+    </script>
+</body>
+</html>
